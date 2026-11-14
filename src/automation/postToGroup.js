@@ -8,30 +8,23 @@ import {
   looksBlocked
 } from './util.js'
 
+// The group composer trigger is a div[role=button] whose text is "Write something...".
+// It has no aria-label, so match by text.
 const COMPOSER_TRIGGERS = [
-  '[role="button"][aria-label*="Write something"]',
-  '[role="button"][aria-label*="Create post"]',
+  'div[role="button"]:has-text("Write something")',
+  'div[role="button"]:has-text("Create a public post")',
+  'div[role="button"][aria-label*="Write something"]',
   'div[aria-label*="Write something"]',
-  'div[aria-label*="Create post"]',
-  'div[aria-label*="What\'s on your mind"]',
-  'span:has-text("What\'s on your mind")',
   'span:has-text("Write something")'
 ]
 
-const TEXTBOX_SELECTORS = [
-  '[role="dialog"] div[contenteditable="true"]',
-  '[role="dialog"] [role="textbox"]',
-  'div[contenteditable="true"]',
-  '[role="textbox"]'
-]
+// The composer is a [role=dialog] that contains a contenteditable textbox.
+// Scope the textbox to that dialog so we don't hit the feed.
+const composerDialog = '[role="dialog"]:has([contenteditable="true"][role="textbox"])'
+const TEXTBOX = `${composerDialog} [contenteditable="true"][role="textbox"], ${composerDialog} [contenteditable="true"]`
 
-const POST_BUTTON_SELECTORS = [
-  '[role="dialog"] div[role="button"][aria-label="Post"]',
-  '[role="dialog"] div[role="button"]:has-text("Post")',
-  '[role="dialog"] button:has-text("Post")',
-  'div[role="button"][aria-label="Post"]',
-  'div[role="button"]:has-text("Post")'
-]
+// Post button lives inside the composer dialog and has aria-label="Post".
+const POST_BUTTON = `${composerDialog} [role="button"][aria-label="Post"], ${composerDialog} button[aria-label="Post"]`
 
 function buildBody(content) {
   const msg = (content?.message || '').trim()
@@ -71,14 +64,19 @@ export async function postToGroup(context, group, content, settings = {}) {
     }
     await delay(1200)
 
-    // Focus the post textbox.
-    const box = page.locator(TEXTBOX_SELECTORS.join(', ')).first()
-    await box.waitFor({ state: 'visible', timeout: 8000 })
+    // Focus the composer textbox (inside the composer dialog only).
+    const box = page.locator(TEXTBOX).first()
+    try {
+      await box.waitFor({ state: 'visible', timeout: 8000 })
+    } catch {
+      const shot = await screenshot(page, `no-textbox-${group.id}`)
+      return { ok: false, reason: `Composer textbox not found (${shot || 'no screenshot'})` }
+    }
 
     const body = buildBody(content)
     logger.info(`[${label}] Composing ${body.length} chars…`)
     await typeLike(box, body, { typing: settings.typing !== false })
-    await delay(1500) // allow link preview fetch
+    await delay(1800) // allow link preview fetch
 
     if (settings.dryRun) {
       logger.info(`[${label}] DRY RUN — not clicking Post.`)
@@ -86,20 +84,31 @@ export async function postToGroup(context, group, content, settings = {}) {
       return { ok: true, dryRun: true, screenshot: shot }
     }
 
-    // Submit.
-    const posted = await clickFirst(page, POST_BUTTON_SELECTORS, { timeout: 6000 })
+    // Click Post.
+    const posted = await clickFirst(page, [POST_BUTTON], { timeout: 6000 })
     if (!posted) {
       const shot = await screenshot(page, `no-postbtn-${group.id}`)
       return { ok: false, reason: `Could not find Post button (${shot || 'no screenshot'})` }
     }
 
-    // Wait for the composer to close (dialog gone) as success signal.
+    // Success = the composer dialog closes.
+    const dialog = page.locator(composerDialog).first()
+    let closed = false
     try {
-      await page.locator('[role="dialog"]').first().waitFor({ state: 'hidden', timeout: 20000 })
+      await dialog.waitFor({ state: 'hidden', timeout: 20000 })
+      closed = true
     } catch {
-      // Some UIs keep an empty dialog; verify by checking textbox is gone.
-      const stillOpen = await page.locator(TEXTBOX_SELECTORS.join(', ')).first().isVisible().catch(() => false)
-      if (stillOpen) {
+      closed = false
+    }
+
+    if (!closed) {
+      // Some UIs keep the dialog mounted; verify the textbox is gone/empty.
+      const stillTyping = await page
+        .locator(TEXTBOX)
+        .first()
+        .isVisible()
+        .catch(() => false)
+      if (stillTyping) {
         const shot = await screenshot(page, `post-stuck-${group.id}`)
         return { ok: false, reason: `Post may not have gone through (${shot || 'no screenshot'})` }
       }
