@@ -31,6 +31,22 @@ router.post('/bulk', async (req, res, next) => {
   }
 })
 
+router.post('/bulk-delete', async (req, res, next) => {
+  try {
+    const { ids } = req.body || {}
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids must be a non-empty array' })
+    }
+    const set = new Set(ids.map(String))
+    const groups = await store.getGroups()
+    const remaining = groups.filter((g) => !set.has(String(g.id)))
+    await store.setGroups(remaining)
+    res.json({ deleted: groups.length - remaining.length })
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.put('/:id', async (req, res, next) => {
   try {
     const groups = await store.getGroups()

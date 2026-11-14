@@ -21,12 +21,20 @@ export default function Groups({ notify, refresh }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [selected, setSelected] = useState(() => new Set())
 
   const load = () => {
     setLoading(true)
     api
       .getGroups()
-      .then(setGroups)
+      .then((g) => {
+        setGroups(g)
+        setSelected((prev) => {
+          const ids = new Set(g.map((x) => String(x.id)))
+          const next = new Set([...prev].filter((id) => ids.has(id)))
+          return next
+        })
+      })
       .catch((e) => notify('error', String(e.message || e)))
       .finally(() => setLoading(false))
   }
@@ -52,6 +60,32 @@ export default function Groups({ notify, refresh }) {
     [groups]
   )
 
+  const visibleIds = filtered.map((g) => String(g.id))
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
+  const someSelected = visibleIds.some((id) => selected.has(id))
+  const selectedCount = selected.size
+
+  const toggleSelect = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      const key = String(id)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id))
+      else visibleIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const clearSelection = () => setSelected(new Set())
+
   const toggle = async (g) => {
     try {
       const updated = await api.updateGroup(g.id, { enabled: !g.enabled })
@@ -67,9 +101,32 @@ export default function Groups({ notify, refresh }) {
     try {
       await api.deleteGroup(g.id)
       setGroups((prev) => prev.filter((x) => x.id !== g.id))
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.delete(String(g.id))
+        return next
+      })
       refresh()
     } catch (e) {
       notify('error', String(e.message || e))
+    }
+  }
+
+  const bulkDelete = async () => {
+    if (selectedCount === 0) return
+    const ids = [...selected]
+    if (!window.confirm(`Delete ${ids.length} selected group(s)? This only removes them from the list, not from Facebook.`)) return
+    setBulkBusy(true)
+    try {
+      await api.bulkDeleteGroups(ids)
+      setGroups((prev) => prev.filter((g) => !selected.has(String(g.id))))
+      clearSelection()
+      refresh()
+      notify('ok', `Deleted ${ids.length} group(s).`)
+    } catch (e) {
+      notify('error', String(e.message || e))
+    } finally {
+      setBulkBusy(false)
     }
   }
 
@@ -77,14 +134,13 @@ export default function Groups({ notify, refresh }) {
     if (!filtered.length) return
     setBulkBusy(true)
     try {
-      await api.bulkGroups(filtered.map((g) => g.id), enabled)
+      const ids = selectedCount > 0 ? [...selected] : filtered.map((g) => g.id)
+      await api.bulkGroups(ids, enabled)
       setGroups((prev) =>
-        prev.map((g) =>
-          filtered.some((f) => f.id === g.id) ? { ...g, enabled } : g
-        )
+        prev.map((g) => (selectedCount > 0 && !selected.has(String(g.id)) ? g : { ...g, enabled }))
       )
       refresh()
-      notify('ok', `${enabled ? 'Enabled' : 'Disabled'} ${filtered.length} group(s).`)
+      notify('ok', `${enabled ? 'Enabled' : 'Disabled'} ${ids.length} group(s).`)
     } catch (e) {
       notify('error', String(e.message || e))
     } finally {
@@ -137,10 +193,18 @@ export default function Groups({ notify, refresh }) {
           </div>
           <div className="toolbar-right">
             <button className="btn" disabled={bulkBusy || !filtered.length} onClick={() => bulk(true)}>
-              Enable shown
+              {selectedCount > 0 ? `Enable selected (${selectedCount})` : 'Enable shown'}
             </button>
             <button className="btn" disabled={bulkBusy || !filtered.length} onClick={() => bulk(false)}>
-              Disable shown
+              {selectedCount > 0 ? `Disable selected (${selectedCount})` : 'Disable shown'}
+            </button>
+            <button
+              className="btn danger"
+              disabled={bulkBusy || selectedCount === 0}
+              onClick={bulkDelete}
+            >
+              <Icon name="trash" size={15} />
+              Delete selected{selectedCount > 0 ? ` (${selectedCount})` : ''}
             </button>
             <button className="btn primary" disabled={discovering} onClick={discover}>
               <Icon name="refresh" size={16} />
@@ -148,6 +212,23 @@ export default function Groups({ notify, refresh }) {
             </button>
           </div>
         </div>
+
+        {selectedCount > 0 && (
+          <div className="selection-bar">
+            <span>
+              <b>{selectedCount}</b> selected
+            </span>
+            <button className="btn small" onClick={toggleSelectAll}>
+              {allVisibleSelected ? 'Deselect shown' : 'Select all shown'}
+            </button>
+            <button className="btn small" onClick={clearSelection}>
+              Clear
+            </button>
+            <button className="btn small danger" disabled={bulkBusy} onClick={bulkDelete}>
+              <Icon name="trash" size={13} /> Delete selected
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="empty"><span>Loading groups…</span></div>
@@ -167,6 +248,16 @@ export default function Groups({ notify, refresh }) {
             <table className="table groups-table">
               <thead>
                 <tr>
+                  <th className="col-check">
+                    <input
+                      type="checkbox"
+                      className="checkbox"
+                      checked={allVisibleSelected}
+                      ref={(el) => el && (el.indeterminate = someSelected && !allVisibleSelected)}
+                      onChange={toggleSelectAll}
+                      aria-label="Select all shown"
+                    />
+                  </th>
                   <th className="col-toggle">On</th>
                   <th>Group</th>
                   <th>Last posted</th>
@@ -175,34 +266,46 @@ export default function Groups({ notify, refresh }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((g) => (
-                  <tr key={g.id} className={g.enabled === false ? 'row-off' : ''}>
-                    <td>
-                      <button
-                        className={`switch ${g.enabled !== false ? 'on' : ''}`}
-                        onClick={() => toggle(g)}
-                        aria-label={g.enabled !== false ? 'Disable group' : 'Enable group'}
-                      >
-                        <span className="knob" />
-                      </button>
-                    </td>
-                    <td>
-                      <div className="group-name">{g.name || 'Untitled group'}</div>
-                      <div className="group-id mono">{g.id}</div>
-                    </td>
-                    <td className="muted small">{relative(g.lastPosted)}</td>
-                    <td className="col-url">
-                      <a className="url-link" href={g.url} target="_blank" rel="noreferrer">
-                        {g.url.replace('https://www.facebook.com', '')}
-                      </a>
-                    </td>
-                    <td className="col-actions">
-                      <button className="iconbtn danger" title="Remove" onClick={() => remove(g)}>
-                        <Icon name="trash" size={15} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((g) => {
+                  const isSel = selected.has(String(g.id))
+                  return (
+                    <tr key={g.id} className={`${g.enabled === false ? 'row-off' : ''} ${isSel ? 'row-selected' : ''}`}>
+                      <td className="col-check">
+                        <input
+                          type="checkbox"
+                          className="checkbox"
+                          checked={isSel}
+                          onChange={() => toggleSelect(g.id)}
+                          aria-label={`Select ${g.name || g.id}`}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          className={`switch ${g.enabled !== false ? 'on' : ''}`}
+                          onClick={() => toggle(g)}
+                          aria-label={g.enabled !== false ? 'Disable group' : 'Enable group'}
+                        >
+                          <span className="knob" />
+                        </button>
+                      </td>
+                      <td>
+                        <div className="group-name">{g.name || 'Untitled group'}</div>
+                        <div className="group-id mono">{g.id}</div>
+                      </td>
+                      <td className="muted small">{relative(g.lastPosted)}</td>
+                      <td className="col-url">
+                        <a className="url-link" href={g.url} target="_blank" rel="noreferrer">
+                          {g.url.replace('https://www.facebook.com', '')}
+                        </a>
+                      </td>
+                      <td className="col-actions">
+                        <button className="iconbtn danger" title="Remove" onClick={() => remove(g)}>
+                          <Icon name="trash" size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

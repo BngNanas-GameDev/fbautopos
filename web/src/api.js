@@ -29,6 +29,8 @@ export const api = {
   updateGroup: (id, body) => req(`/groups/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   bulkGroups: (ids, enabled) =>
     req('/groups/bulk', { method: 'POST', body: JSON.stringify({ ids, enabled }) }),
+  bulkDeleteGroups: (ids) =>
+    req('/groups/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }),
   deleteGroup: (id) => req(`/groups/${id}`, { method: 'DELETE' }),
 
   run: (body = {}) => req('/jobs/run', { method: 'POST', body: JSON.stringify(body) }),

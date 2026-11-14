@@ -314,7 +314,21 @@ kbd {
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
 .groups-table .col-toggle { width: 54px; }
+.groups-table .col-check { width: 40px; text-align: center; }
 .groups-table .col-actions { width: 44px; text-align: right; }
+.checkbox {
+  width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary);
+  vertical-align: middle;
+}
+.row-selected { background: rgba(79, 140, 255, 0.08); }
+.row-selected:hover { background: rgba(79, 140, 255, 0.12); }
+.selection-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 12px; margin-bottom: 12px;
+  background: var(--primary-soft); border: 1px solid rgba(79, 140, 255, 0.28);
+  border-radius: 10px; font-size: 12.5px;
+}
+.selection-bar b { color: var(--primary-2); }
 .group-name { font-size: 13px; font-weight: 550; }
 .group-id { margin-top: 2px; }
 .url-link { color: var(--muted); font-size: 12px; }
