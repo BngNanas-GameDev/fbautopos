@@ -135,6 +135,25 @@ export default function App() {
         </nav>
 
         <div className="sidebar-foot">
+          <button
+            className={`account ${status?.identity?.name ? 'on' : ''}`}
+            onClick={() => setTab('Dashboard')}
+            title={status?.identity?.name ? 'Logged in' : 'Not logged in'}
+          >
+            {status?.identity?.name ? (
+              <span className="account-avatar">
+                {status.identity.name.trim().charAt(0).toUpperCase()}
+              </span>
+            ) : (
+              <span className="account-avatar muted">?</span>
+            )}
+            <span className="account-meta">
+              <span className="account-label">Account</span>
+              <span className="account-name">
+                {status?.identity?.name || 'Not logged in'}
+              </span>
+            </span>
+          </button>
           <div className="sched-state">
             <span className={`pulse ${sched.running ? 'on' : 'off'}`} />
             <div>

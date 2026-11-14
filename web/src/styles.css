@@ -106,6 +106,36 @@ kbd {
 .sched-label { font-size: 12.5px; font-weight: 600; }
 .sched-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
+/* ---------- Account ---------- */
+.account {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; margin-bottom: 8px; border-radius: 11px;
+  background: var(--panel); border: 1px solid var(--border-soft);
+  color: var(--text); cursor: pointer; text-align: left;
+  transition: all 0.14s ease;
+}
+.account:hover { border-color: #34415a; }
+.account.on { border-color: rgba(47, 191, 113, 0.35); }
+.account-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-weight: 700; font-size: 14px;
+  color: #fff; background: linear-gradient(145deg, #4f8cff, #7a5cff);
+}
+.account-avatar.lg { width: 46px; height: 46px; font-size: 20px; }
+.account-avatar.muted { background: var(--panel-3); color: var(--faint); }
+.account-meta { display: flex; flex-direction: column; min-width: 0; }
+.account-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.account-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+
+.account-card {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.account-id { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.account-title { font-size: 15px; font-weight: 650; }
+.account-status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); margin-top: 3px; }
+.account-card.logged .account-status { color: #9cf0c2; }
+
 /* ---------- Pulse ---------- */
 .pulse {
   width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none;

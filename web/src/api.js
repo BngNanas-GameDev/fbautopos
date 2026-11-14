@@ -21,6 +21,7 @@ async function req(path, opts = {}) {
 
 export const api = {
   getStatus: () => req('/status'),
+  whoami: () => req('/status/whoami'),
   getConfig: () => req('/config'),
   saveConfig: (body) => req('/config', { method: 'PUT', body: JSON.stringify(body) }),
 

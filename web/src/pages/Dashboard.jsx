@@ -66,6 +66,36 @@ export default function Dashboard({ status, refresh, run, notify }) {
 
   return (
     <div className="stack">
+      <section className={`card account-card ${status?.identity?.name ? 'logged' : 'guest'}`}>
+        <div className="account-id">
+          {status?.identity?.name ? (
+            <span className="account-avatar lg">
+              {status.identity.name.trim().charAt(0).toUpperCase()}
+            </span>
+          ) : (
+            <span className="account-avatar lg muted">?</span>
+          )}
+          <div className="account-id-text">
+            <div className="account-title">
+              {status?.identity?.name || 'No account detected'}
+            </div>
+            <div className="account-status">
+              {status?.identity?.name ? (
+                <>
+                  <span className="pulse on" /> Logged in · session saved
+                </>
+              ) : (
+                'Click “Login to Facebook” to sign in'
+              )}
+            </div>
+          </div>
+        </div>
+        <button className="btn" disabled={disabled} onClick={() => guard('login', () => api.login(), 'Login window closed.')}>
+          <Icon name="login" size={16} />
+          {status?.identity?.name ? 'Switch account' : 'Login to Facebook'}
+        </button>
+      </section>
+
       <div className="stats">
         <Stat
           icon="clock"

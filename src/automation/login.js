@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url'
 import { launchContext } from './browser.js'
 import { logger } from '../server/logger.js'
 import { delay } from './util.js'
+import { detectIdentity, readSavedIdentity } from './identity.js'
 
 const FB_HOME = 'https://www.facebook.com/'
 
@@ -41,9 +42,17 @@ export async function performLogin({ onStatus = () => {}, timeoutMs = 5 * 60 * 1
     while (Date.now() - started < timeoutMs) {
       if (page.isClosed()) return { ok: false, reason: 'Browser window closed before login completed.' }
       if (await isLoggedIn(page)) {
-        onStatus('Login detected. Saving session.')
+        onStatus('Login detected. Reading account…')
+        // Give the page a moment to settle, then read the account name.
+        await delay(1200)
+        const id = await detectIdentity(context)
+        if (id.loggedIn && id.name) {
+          onStatus(`Logged in as ${id.name}. Saving session.`)
+          return { ok: true, name: id.name }
+        }
+        onStatus('Login detected, but the account name could not be read. Saving session anyway.')
         await delay(1500)
-        return { ok: true }
+        return { ok: true, name: (await readSavedIdentity())?.name || null }
       }
       await delay(2500)
     }

@@ -1,5 +1,6 @@
 import { runOnce } from '../automation/run.js'
 import { performLogin } from '../automation/login.js'
+import { verifySession, readSavedIdentity } from '../automation/identity.js'
 import { discoverGroups } from '../automation/discoverGroups.js'
 import { logger } from './logger.js'
 
@@ -54,4 +55,14 @@ export function discover() {
     const { discovered, merged } = await discoverGroups({ headless: false })
     return { discovered: discovered.length, total: merged.length }
   })
+}
+
+// Verify (and remember) which account is signed into the saved profile.
+export async function whoami() {
+  try {
+    const result = await verifySession({ headless: true })
+    return { ok: result.ok, name: result.name || null }
+  } catch {
+    return readSavedIdentity()
+  }
 }
