@@ -1,0 +1,15 @@
+node_modules/
+auth/
+logs/
+web/dist/
+
+# local config + runtime state (may contain FB group data / post history)
+config/content.json
+config/groups.json
+config/settings.json
+config/state.json
+
+.env
+
+*.log
+.DS_Store
