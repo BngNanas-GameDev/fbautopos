@@ -42,8 +42,11 @@ function buildBody(content) {
  * @param {{typing?:boolean,dryRun?:boolean}} settings
  * @returns {Promise<{ok:boolean, reason?:string}>}
  */
-export async function postToGroup(context, group, content, settings = {}) {
-  const page = await context.newPage()
+export async function postToGroup(context, group, content, settings = {}, options = {}) {
+  // Reuse a caller-provided page when given (keeps one tab for the whole run,
+  // so Chrome never falls back to about:blank between groups).
+  const page = options.page || (await context.newPage())
+  const ownsPage = !options.page
   const label = group.name || group.id
   try {
     logger.info(`[${label}] Opening group…`)
@@ -125,6 +128,8 @@ export async function postToGroup(context, group, content, settings = {}) {
     const shot = await screenshot(page, `error-${group.id}`)
     return { ok: false, reason: String(err).split('\n')[0] + ` (${shot || 'no screenshot'})` }
   } finally {
-    await page.close().catch(() => {})
+    // Only close the page if we created it. Reused pages stay open so the
+    // browser window doesn't drop to about:blank.
+    if (ownsPage) await page.close().catch(() => {})
   }
 }

@@ -66,6 +66,9 @@ export async function runOnce({ dryRun, headless, limit, context } = {}) {
 
   const ownContext = !context
   const ctx = context || (await launchContext({ headless: runHeadless }))
+  // Reuse a single tab for the whole run so the window stays on Facebook
+  // (a fresh page per group leaves Chrome showing about:blank).
+  const page = ctx.pages()[0] || (await ctx.newPage())
   let aborted = false
 
   try {
@@ -73,10 +76,13 @@ export async function runOnce({ dryRun, headless, limit, context } = {}) {
       const group = selected[i]
       let result
       try {
-        result = await postToGroup(ctx, group, content, {
-          typing: settings.typing,
-          dryRun: isDry
-        })
+        result = await postToGroup(
+          ctx,
+          group,
+          content,
+          { typing: settings.typing, dryRun: isDry },
+          { page }
+        )
       } catch (err) {
         result = { ok: false, reason: String(err).split('\n')[0] }
       }
